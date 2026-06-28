@@ -14,7 +14,6 @@ ALLOWED_USER_ID = int(os.environ.get("ALLOWED_USER_ID", 0))
 HF_SPACE_URL = os.environ.get("HF_SPACE_URL") 
 RENDER_URL = os.environ.get("RENDER_URL")     
 
-# জেমিনি কী পুল (প্ল্যানিং ও চ্যাটের জন্য)
 GEMINI_KEYS = [os.environ.get("GEMINI_KEY_1"), os.environ.get("GEMINI_KEY_2")]
 gemini_index = 0
 
@@ -36,22 +35,22 @@ def handle_chat(message):
     try:
         llm = get_planner_llm()
         
-        # জেমিনিকে কড়া নির্দেশ দেওয়া হচ্ছে চ্যাট এবং টাস্ক আলাদা করার জন্য
+        # জেমিনিকে ব্রাউজার কোড জেনারেট করা থেকে বিরত রাখার জন্য কড়া প্রম্পট
         prompt = (
-            "You are a helpful AI Assistant and Browser Automation Expert.\n"
-            "Look at the user's message and strictly follow these rules:\n\n"
-            "Rule 1: If the user is just greeting you (like 'hello', 'hi', 'হ্যালো', 'কেমন আছো'), asking general questions, "
-            "or discussing options/ideas, reply to them nicely in Bengali as a regular chat companion. DO NOT make a step-by-step browser automation plan.\n"
-            "Rule 2: If the user explicitly asks you to do a specific job on a website, login somewhere, or perform a browser automation task, "
-            "then create a short, professional, step-by-step browser automation plan in Bengali explaining how you will do it. "
-            "CRITICAL: If and only if you are providing a browser automation plan under Rule 2, you must include the exact tag '[TASK_PLAN]' anywhere in your response.\n\n"
+            "You are a smart AI Assistant and Web Router.\n"
+            "Analyze the user's input and strictly follow these rules:\n\n"
+            "Rule 1: If the user is just greeting you (like 'hello', 'hi', 'হ্যালো', 'কেমন আছো'), asking general chit-chat questions, "
+            "or talking casually, just reply to them warmly in Bengali. DO NOT provide any steps or plans. DO NOT include the tag '[TASK_PLAN]'.\n\n"
+            "Rule 2: If the user gives you a real task to do on a browser/website (like login to cpanel, check status, edit files), "
+            "then create a short, non-technical, human-like step-by-step plan in Bengali explaining how YOU (the AI) will perform it on the browser (e.g., ১. প্রথমে cPanel লিঙ্কে যাব, ২. লগইন তথ্য পূরণ করব).\n"
+            "CRITICAL WARNING for Rule 2: NEVER write any Python code, Selenium code, or programming blocks. The user does not want code or learning tutorials. They want you to execute it.\n"
+            "CRITICAL: If and only if it is a Rule 2 browser task, you must append the exact text '[TASK_PLAN]' at the very end of your response.\n\n"
             f"User message: {message.text}"
         )
         
         res = llm.invoke(prompt)
         response_text = res.content
         
-        # যদি রেসপন্সে [TASK_PLAN] ট্যাগটি থাকে, তবেই বাটন দেখাবে
         if "[TASK_PLAN]" in response_text:
             plan_text = response_text.replace("[TASK_PLAN]", "").strip()
             user_sessions[chat_id] = message.text
@@ -63,9 +62,8 @@ def handle_chat(message):
             )
             
             bot.delete_message(chat_id, waiting.message_id)
-            bot.send_message(chat_id, f"📋 **পরিকল্পনা রিপোর্ট:**\n\n{plan_text}", reply_markup=markup, parse_mode="Markdown")
+            bot.send_message(chat_id, f"📋 **পরিকল্পনা রিপোর্ট:**\n\n{plan_text}\n\nআপনি অনুমতি দিলে আমি হাগিংফেস ইঞ্জিনে কাজ শুরু করব।", reply_markup=markup, parse_mode="Markdown")
         else:
-            # সাধারণ চ্যাটের ক্ষেত্রে কোনো বাটন ছাড়াই ডিরেক্ট মেসেজ পাঠাবে
             bot.delete_message(chat_id, waiting.message_id)
             bot.send_message(chat_id, response_text)
             
@@ -77,7 +75,7 @@ def buttons(call):
     chat_id = call.message.chat.id
     if call.data == "cancel":
         bot.answer_callback_query(call.id, "টাস্ক বাতিল করা হয়েছে।")
-        bot.edit_message_text("❌ আপনি কাজটি বাতিল করেছেন। নতুন কোনো আলোচনা বা কাজ থাকলে বলুন।", chat_id, call.message.message_id)
+        bot.edit_message_text("❌ আপনি কাজটি বাতিল করেছেন। নতুন কোনো নির্দেশ থাকলে বলুন।", chat_id, call.message.message_id)
         user_sessions.pop(chat_id, None)
         return
 
@@ -108,7 +106,7 @@ def health():
 if __name__ == "__main__":
     try:
         bot.remove_webhook()
-        bot.send_message(ALLOWED_USER_ID, "🚀 **সিস্টেম অনলাইন!** রেন্ডার বট গেটওয়ে সফলভাবে আপডেট হয়েছে।")
+        bot.send_message(ALLOWED_USER_ID, "🚀 **সিস্টем অনলাইন!** রেন্ডার বট গেটওয়ে সফলভাবে আপডেট হয়েছে।")
     except: pass
     
     threading.Thread(target=lambda: bot.infinity_polling(), daemon=True).start()
