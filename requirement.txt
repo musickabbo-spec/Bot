@@ -1,0 +1,5 @@
+pyTelegramBotAPI
+langchain-google-genai
+fastapi
+uvicorn
+requests
